@@ -14,7 +14,7 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
 
 object Main {
-  val writer: Writer = new FileWriter("/tmp/fifo")
+  val writer: Writer = new FileWriter("/var/fifo")
   val ipAddress = InetAddress.getLocalHost().getHostAddress()
   val onlineMessage: String = ipAddress + ":o\n"
   val requestMessage: String = ipAddress + ":r\n"
