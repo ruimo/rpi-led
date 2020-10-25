@@ -19,6 +19,7 @@ object Main {
   val onlineMessage: String = ipAddress + ":o\n"
   val requestMessage: String = ipAddress + ":r\n"
   val server = new Server(8080)
+  val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
 
   def main(args: Array[String]): Unit = {
     registerOnlineMarker()
@@ -47,12 +48,17 @@ object Main {
 
   private[this] def registerOnlineMarker(): Unit = {
     Executors.newScheduledThreadPool(1).scheduleAtFixedRate(
-      () => writeMessage(onlineMessage), 1, 1, TimeUnit.SECONDS
+        () => writeMessage(onlineMessage), 0, onlineBlinkPeriod, TimeUnit.MILLISECONDS
     )
   }
 
   private[this] def writeMessage(message: String): Unit = {
-    writer.write(message)
-    writer.flush()
+    try {
+      writer.write(message)
+      writer.flush()
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace()
+    }
   }
 }
