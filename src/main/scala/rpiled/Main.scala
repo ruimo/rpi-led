@@ -18,6 +18,8 @@ object Main {
   val ipAddress = InetAddress.getLocalHost().getHostAddress()
   val onlineMessage: String = ipAddress + ":o\n"
   val requestMessage: String = ipAddress + ":r\n"
+  val readinessSuccessMessage: String = ipAddress + ":rs\n"
+  val readinessFailureMessage: String = ipAddress + ":rf\n"
   val server = new Server(8080)
   val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
   @volatile private[this] var isReady = true
@@ -51,9 +53,11 @@ object Main {
         if (isReady) {
           response.setStatus(HttpServletResponse.SC_OK)
           response.getWriter().println("Ready")
+          writeMessage(readinessSuccessMessage)
         } else {
           response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
           response.getWriter().println("Not Ready")
+          writeMessage(readinessFailureMessage)
         }
         baseRequest.setHandled(true)
       }
