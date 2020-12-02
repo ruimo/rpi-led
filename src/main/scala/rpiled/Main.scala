@@ -3,12 +3,12 @@ package rpiled
 import java.io.FileWriter
 import java.io.Writer
 import java.net.InetAddress
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
-
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
@@ -20,6 +20,7 @@ object Main {
   val requestMessage: String = ipAddress + ":r\n"
   val server = new Server(8080)
   val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
+  @volatile private[this] var isReady = true
 
   def main(args: Array[String]): Unit = {
     registerOnlineMarker()
@@ -37,12 +38,62 @@ object Main {
   private[this] def onRequest(target: String, baseRequest: Request, response: HttpServletResponse): Unit = {
     println("Context path: '" + target + "'")
 
-    if (target.equals("/")) {
+    def onTop() = {
       response.setContentType("text/html; charset=utf-8")
       response.setStatus(HttpServletResponse.SC_OK)
       response.getWriter().println("<h1>Hello World</h1>")
       baseRequest.setHandled(true)
       writeMessage(requestMessage)
+    }
+
+    def onReady() = {
+      def onGet() = {
+        if (isReady) {
+          response.setStatus(HttpServletResponse.SC_OK)
+          response.getWriter().println("Ready")
+        } else {
+          response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
+          response.getWriter().println("Not Ready")
+        }
+        baseRequest.setHandled(true)
+      }
+
+      def onPost() = {
+        Option(baseRequest.getParameter("isReady")) match {
+          case None =>
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+            response.getWriter().println("Specify isReady=true/false by request parameter. Ex: /ready?isReady=true")
+          case Some(b) => b.toLowerCase(Locale.ENGLISH) match {
+            case "true" =>
+              isReady = true
+              response.setStatus(HttpServletResponse.SC_OK)
+              response.getWriter().println("isReady=" + isReady)
+            case "false" =>
+              isReady = false
+              response.setStatus(HttpServletResponse.SC_OK)
+              response.getWriter().println("isReady=" + isReady)
+            case s: String =>
+              response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+              response.getWriter().println("'" + s + "' is invalid. Specify isReady=true/false by request parameter. Ex: /ready?isReady=true")
+          }
+        }
+        baseRequest.setHandled(true)
+      }
+
+      val method = baseRequest.getMethod().toUpperCase(Locale.ENGLISH)
+      println("Method: '" + method + "'")
+
+      if (method == "GET") {
+        onGet()
+      } else if (method == "POST") {
+        onPost()
+      }
+    }
+
+    if (target.equals("/")) {
+      onTop()
+    } else if (target.startsWith("/ready")) {
+      onReady()
     }
   }
 
