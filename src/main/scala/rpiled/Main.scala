@@ -99,7 +99,7 @@ object Main {
 
     def onOk() = {
       def onGet() = {
-        if (isReady) {
+        if (isOk) {
           response.setStatus(HttpServletResponse.SC_OK)
           response.getWriter().println("Ok")
           writeMessage(livenessSuccessMessage)
