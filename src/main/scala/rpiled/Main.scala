@@ -143,12 +143,19 @@ object Main {
       }
     }
 
+    def onExit() = {
+      val rc = Option(baseRequest.getParameter("rc")).getOrElse("0").toInt
+      System.exit(rc)
+    }
+
     if (target.equals("/")) {
       onTop()
     } else if (target.startsWith("/ready")) {
       onReady()
     } else if (target.startsWith("/ok")) {
       onOk()
+    } else if (target.startsWith("/exit")) {
+      onExit()
     }
   }
 
