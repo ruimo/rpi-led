@@ -20,9 +20,12 @@ object Main {
   val requestMessage: String = ipAddress + ":r\n"
   val readinessSuccessMessage: String = ipAddress + ":rs\n"
   val readinessFailureMessage: String = ipAddress + ":rf\n"
+  val livenessSuccessMessage: String = ipAddress + ":ls\n"
+  val livenessFailureMessage: String = ipAddress + ":lf\n"
   val server = new Server(8080)
   val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
   @volatile private[this] var isReady = true
+  @volatile private[this] var isOk = true
 
   def main(args: Array[String]): Unit = {
     registerOnlineMarker()
@@ -94,10 +97,58 @@ object Main {
       }
     }
 
+    def onOk() = {
+      def onGet() = {
+        if (isReady) {
+          response.setStatus(HttpServletResponse.SC_OK)
+          response.getWriter().println("Ok")
+          writeMessage(livenessSuccessMessage)
+        } else {
+          response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
+          response.getWriter().println("NG")
+          writeMessage(livenessFailureMessage)
+        }
+        baseRequest.setHandled(true)
+      }
+
+      def onPost() = {
+        Option(baseRequest.getParameter("isOk")) match {
+          case None =>
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+            response.getWriter().println("Specify isOk=true/false by request parameter. Ex: /ok?isOk=true")
+          case Some(b) => b.toLowerCase(Locale.ENGLISH) match {
+            case "true" =>
+              isOk = true
+              response.setStatus(HttpServletResponse.SC_OK)
+              response.getWriter().println("isOk=" + isOk)
+            case "false" =>
+              isOk = false
+              response.setStatus(HttpServletResponse.SC_OK)
+              response.getWriter().println("isOk=" + isOk)
+            case s: String =>
+              response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+              response.getWriter().println("'" + s + "' is invalid. Specify isOk=true/false by request parameter. Ex: /ok?isOk=true")
+          }
+        }
+        baseRequest.setHandled(true)
+      }
+
+      val method = baseRequest.getMethod().toUpperCase(Locale.ENGLISH)
+      println("Method: '" + method + "'")
+
+      if (method == "GET") {
+        onGet()
+      } else if (method == "POST") {
+        onPost()
+      }
+    }
+
     if (target.equals("/")) {
       onTop()
     } else if (target.startsWith("/ready")) {
       onReady()
+    } else if (target.startsWith("/ok")) {
+      onOk()
     }
   }
 
