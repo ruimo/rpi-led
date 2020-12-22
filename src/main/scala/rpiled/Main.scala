@@ -13,6 +13,8 @@ import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
 
+import scala.concurrent.Future
+
 object Main {
   val writer: Writer = new FileWriter("/var/fifo")
   val ipAddress = InetAddress.getLocalHost().getHostAddress()
@@ -24,11 +26,13 @@ object Main {
   val livenessFailureMessage: String = ipAddress + ":lf\n"
   val server = new Server(8080)
   val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
+  val autoShutdownPeriod: Option[Long] = Option(System.getenv("AUTO_SHUTDOWN_PERIOD")).map(_.toLong)
   @volatile private[this] var isReady = true
   @volatile private[this] var isOk = true
 
   def main(args: Array[String]): Unit = {
     registerOnlineMarker()
+    registerAutoShutodown()
     server.setHandler(new AbstractHandler() {
       override def handle(
         target: String, baseRequest: Request,
@@ -164,6 +168,15 @@ object Main {
         () => writeMessage(onlineMessage), 0, onlineBlinkPeriod, TimeUnit.MILLISECONDS
     )
   }
+
+  private[this] def registerAutoShutodown(): Unit =
+    autoShutdownPeriod.foreach { period =>
+      implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+      Future {
+        Thread.sleep(period)
+        System.exit(0)
+      }
+    }
 
   private[this] def writeMessage(message: String): Unit = {
     try {
