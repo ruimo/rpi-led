@@ -57,7 +57,7 @@ object Main {
 
     def onReady() = {
       def onGet() = {
-        if (isReady) {
+        if (isReady && ! autoShutdownPeriod.isDefined) {
           response.setStatus(HttpServletResponse.SC_OK)
           response.getWriter().println("Ready")
           writeMessage(readinessSuccessMessage)
