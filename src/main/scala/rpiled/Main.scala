@@ -14,6 +14,10 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+import java.lang.System.{getenv => env}
+
+import scala.util.Random
 
 object Main {
   val writer: Writer = new FileWriter("/var/fifo")
@@ -25,8 +29,9 @@ object Main {
   val livenessSuccessMessage: String = ipAddress + ":ls\n"
   val livenessFailureMessage: String = ipAddress + ":lf\n"
   val server = new Server(8080)
-  val onlineBlinkPeriod: Long = Option(System.getenv("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
-  val autoShutdownPeriod: Option[Long] = Option(System.getenv("AUTO_SHUTDOWN_PERIOD")).map(_.toLong)
+  val onlineBlinkPeriod: Long = Option(env("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
+  val autoShutdownPeriod: Option[Long] = Option(env("AUTO_SHUTDOWN_PERIOD")).map(_.toLong)
+  val busyLoopCount: Long = Option(env("BUSY_LOOP_COUNT")).map(_.toLong).getOrElse(0L)
   @volatile private[this] var isReady = true
   @volatile private[this] var isOk = true
 
@@ -52,6 +57,9 @@ object Main {
       response.setStatus(HttpServletResponse.SC_OK)
       response.getWriter().println("<h1>Hello World</h1>")
       baseRequest.setHandled(true)
+      (0L until busyLoopCount).map { i =>
+        Random.nextInt()
+      }.sum
       writeMessage(requestMessage)
     }
 
