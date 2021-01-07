@@ -56,10 +56,11 @@ object Main {
       response.setContentType("text/html; charset=utf-8")
       response.setStatus(HttpServletResponse.SC_OK)
       response.getWriter().println("<h1>Hello World</h1>")
-      baseRequest.setHandled(true)
-      (0L until busyLoopCount).map { i =>
+      val busyResult = (0L until busyLoopCount).map { i =>
         Random.nextInt()
       }.sum
+      response.setHeader("busyResponse", busyResult.toString)
+      baseRequest.setHandled(true)
       writeMessage(requestMessage)
     }
 
