@@ -14,13 +14,15 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
 
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import java.lang.System.{getenv => env}
+import configs.syntax._
+
+import com.typesafe.config.ConfigFactory
 
 import scala.util.Random
 
 object Main {
-  val writer: Writer = new FileWriter("/var/fifo")
+  val conf: AppConfig = ConfigFactory.load().get[AppConfig]("parm").value
+  val writer: Writer = new FileWriter(conf.fifoPath.toFile)
   val ipAddress = InetAddress.getLocalHost().getHostAddress()
   val onlineMessage: String = ipAddress + ":o\n"
   val requestMessage: String = ipAddress + ":r\n"
@@ -28,10 +30,7 @@ object Main {
   val readinessFailureMessage: String = ipAddress + ":rf\n"
   val livenessSuccessMessage: String = ipAddress + ":ls\n"
   val livenessFailureMessage: String = ipAddress + ":lf\n"
-  val server = new Server(8080)
-  val onlineBlinkPeriod: Long = Option(env("ONLINE_BLINK_PERIOD")).map(_.toLong).getOrElse(1000L)
-  val autoShutdownPeriod: Option[Long] = Option(env("AUTO_SHUTDOWN_PERIOD")).map(_.toLong)
-  val busyLoopCount: Long = Option(env("BUSY_LOOP_COUNT")).map(_.toLong).getOrElse(0L)
+  val server = new Server(conf.listenPort)
   @volatile private[this] var isReady = true
   @volatile private[this] var isOk = true
 
@@ -56,7 +55,7 @@ object Main {
       response.setContentType("text/html; charset=utf-8")
       response.setStatus(HttpServletResponse.SC_OK)
       response.getWriter().println("<h1>Hello World</h1>")
-      val busyResult = (0L until busyLoopCount).map { i =>
+      val busyResult = (0L until conf.busyLoopCount).map { i =>
         Random.nextInt()
       }.sum
       response.setHeader("busyResponse", busyResult.toString)
@@ -66,7 +65,7 @@ object Main {
 
     def onReady() = {
       def onGet() = {
-        if (isReady && ! autoShutdownPeriod.isDefined) {
+        if (isReady && ! conf.autoShutdownPeriodMillis.isDefined) {
           response.setStatus(HttpServletResponse.SC_OK)
           response.getWriter().println("Ready")
           writeMessage(readinessSuccessMessage)
@@ -174,12 +173,12 @@ object Main {
 
   private[this] def registerOnlineMarker(): Unit = {
     Executors.newScheduledThreadPool(1).scheduleAtFixedRate(
-        () => writeMessage(onlineMessage), 0, onlineBlinkPeriod, TimeUnit.MILLISECONDS
+        () => writeMessage(onlineMessage), 0, conf.onlineBlinkPeriodMillis, TimeUnit.MILLISECONDS
     )
   }
 
   private[this] def registerAutoShutodown(): Unit =
-    autoShutdownPeriod.foreach { period =>
+    conf.autoShutdownPeriodMillis.foreach { period =>
       implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
       Future {
         Thread.sleep(period)
